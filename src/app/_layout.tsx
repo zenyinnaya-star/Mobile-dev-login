@@ -1,25 +1,37 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { useState } from 'react';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import SimpleSplash from '@/components/simple-splash';
+import { AuthProvider, useAuth } from '@/hooks/use-auth';
 
-export const unstable_settings = {
-  anchor: 'auth/login',
-};
+function RootNavigator() {
+  const { isLoggedIn, isLoading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  if (showSplash) {
+    return <SimpleSplash onFinish={() => setShowSplash(false)} />;
+  }
+
+  if (isLoading) {
+    return null;
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      {isLoggedIn ? (
+        
+        <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+      ) : (
+        <Stack.Screen name="auth" options={{ animation: 'none' }} />
+      )}
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
   );
 }

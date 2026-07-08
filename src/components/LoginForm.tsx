@@ -35,7 +35,7 @@ const LoginForm = ({ onSwitchToSignup, onLoginSuccess }: LoginFormProps) => {
   const handleSubmit = async (values: LoginFormValues, { setSubmitting }: FormikHelpers<LoginFormValues>) => {
     try {
       setLoginError('');
-      // No backend wired up yet; validated submit counts as success for now.
+     
       onLoginSuccess();
     } catch (err: any) {
       setLoginError(err?.message || 'Login failed');
