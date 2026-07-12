@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#667eea',
+    backgroundColor: '#000000',
   },
   appName: {
     fontSize: 32,
