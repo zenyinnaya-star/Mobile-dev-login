@@ -18,12 +18,15 @@ function RootNavigator() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {isLoggedIn ? (
-        
+      {/* only mount the tabs when logged in */}
+      <Stack.Protected guard={isLoggedIn}>
         <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
-      ) : (
+      </Stack.Protected>
+
+      {/* only mount the auth screens when logged out */}
+      <Stack.Protected guard={!isLoggedIn}>
         <Stack.Screen name="auth" options={{ animation: 'none' }} />
-      )}
+      </Stack.Protected>
     </Stack>
   );
 }
