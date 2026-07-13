@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Formik, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '@/hooks/use-auth';
 
 const validationSchema = Yup.object().shape({
   fullName: Yup.string()
@@ -23,6 +25,14 @@ const validationSchema = Yup.object().shape({
   roles: Yup.string()
     .required('Roles is required')
     .min(2, 'Role must be at least 2 characters'),
+
+  password: Yup.string()
+    .required('Password is required')
+    .min(6, 'Password must be at least 6 characters'),
+
+  confirmPassword: Yup.string()
+    .required('Please confirm your password')
+    .oneOf([Yup.ref('password')], 'Passwords must match'),
 });
 
 interface EmployeeFormValues {
@@ -31,6 +41,8 @@ interface EmployeeFormValues {
   phone: string;
   employeeId: string;
   roles: string;
+  password: string;
+  confirmPassword: string;
 }
 
 interface EmployeeFormProps {
@@ -44,14 +56,29 @@ const initialValues: EmployeeFormValues = {
   phone: '',
   employeeId: '',
   roles: '',
+  password: '',
+  confirmPassword: '',
 };
 
 const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
-  const handleSubmit = (values: EmployeeFormValues, { setSubmitting }: FormikHelpers<EmployeeFormValues>) => {
-    console.log('Form submitted:', values);
-    setSubmitting(false);
-    Alert.alert('Success', 'Form submitted successfully!');
-    onSuccess();
+  const { signup } = useAuth();
+  const [signupError, setSignupError] = useState('');
+
+  const handleSubmit = async (
+    values: EmployeeFormValues,
+    { setSubmitting }: FormikHelpers<EmployeeFormValues>
+  ) => {
+    try {
+      setSignupError('');
+      const { confirmPassword: _confirmPassword, ...signupInput } = values;
+      await signup(signupInput);
+      Alert.alert('Success', 'Account created successfully!');
+      onSuccess();
+    } catch (err: any) {
+      setSignupError(err?.message || 'Signup failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -59,6 +86,8 @@ const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
       {({ handleChange, handleBlur, handleSubmit: submitForm, handleReset, values, touched, errors, isSubmitting, isValid }) => (
         <View style={styles.container}>
           <Text style={styles.title}>Employee Information Form</Text>
+
+          {signupError ? <Text style={styles.alertError}>{signupError}</Text> : null}
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Full Name</Text>
@@ -126,6 +155,34 @@ const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
             {touched.roles && errors.roles ? <Text style={styles.errorMessage}>{errors.roles}</Text> : null}
           </View>
 
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={[styles.input, touched.password && errors.password ? styles.inputError : null]}
+              placeholder="At least 6 characters"
+              secureTextEntry
+              value={values.password}
+              onChangeText={handleChange('password')}
+              onBlur={handleBlur('password')}
+            />
+            {touched.password && errors.password ? <Text style={styles.errorMessage}>{errors.password}</Text> : null}
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <TextInput
+              style={[styles.input, touched.confirmPassword && errors.confirmPassword ? styles.inputError : null]}
+              placeholder="Re-enter your password"
+              secureTextEntry
+              value={values.confirmPassword}
+              onChangeText={handleChange('confirmPassword')}
+              onBlur={handleBlur('confirmPassword')}
+            />
+            {touched.confirmPassword && errors.confirmPassword ? (
+              <Text style={styles.errorMessage}>{errors.confirmPassword}</Text>
+            ) : null}
+          </View>
+
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={[styles.submitBtn, styles.submitBtnFlex, (!isValid || isSubmitting) && styles.submitBtnDisabled]}
@@ -152,6 +209,7 @@ const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
 const styles = StyleSheet.create({
   container: { padding: 16 },
   title: { fontSize: 20, fontWeight: '600', marginBottom: 16 },
+  alertError: { color: '#d32f2f', marginBottom: 12 },
   formGroup: { marginBottom: 12 },
   label: { marginBottom: 4, fontWeight: '500' },
   input: {

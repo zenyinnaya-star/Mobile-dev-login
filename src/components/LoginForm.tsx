@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Formik, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '@/hooks/use-auth';
 
 export const loginSchema = Yup.object().shape({
   email: Yup.string()
@@ -51,13 +52,14 @@ function getPasswordStrength(password: string) {
 }
 
 const LoginForm = ({ onSwitchToSignup, onLoginSuccess }: LoginFormProps) => {
+  const { login } = useAuth();
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (values: LoginFormValues, { setSubmitting }: FormikHelpers<LoginFormValues>) => {
     try {
       setLoginError('');
-     
+      await login(values.email, values.password);
       onLoginSuccess();
     } catch (err: any) {
       setLoginError(err?.message || 'Login failed');
@@ -204,7 +206,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // reset button + row layout
+ 
   buttonRow: {
     flexDirection: 'row',
     gap: 8,

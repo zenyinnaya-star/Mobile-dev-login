@@ -1,18 +1,15 @@
 import { useRouter } from 'expo-router';
 import { ImageBackground, View, Text, StyleSheet } from 'react-native';
 import LoginForm from '../../components/LoginForm';
-import { useAuth } from '@/hooks/use-auth';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuth();
 
   return (
     <ImageBackground
       source={require('@/assets/expo.icon/lets go.jpg')}
       style={styles.background}
     >
-      {/* Dark Overlay */}
       <View style={styles.overlay} />
 
       {/* Content */}
@@ -25,7 +22,7 @@ export default function LoginScreen() {
         <View style={styles.formContainer}>
           <LoginForm
             onSwitchToSignup={() => router.push('/auth/signup')}
-            onLoginSuccess={() => login()}
+            onLoginSuccess={() => {}}
           />
         </View>
 
