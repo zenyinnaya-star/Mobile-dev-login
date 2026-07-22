@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Formik, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '@/hooks/use-auth';
 
 const validationSchema = Yup.object().shape({
@@ -59,6 +59,28 @@ const initialValues: EmployeeFormValues = {
   password: '',
   confirmPassword: '',
 };
+
+// simple password strength checker
+// just checking a few basic rules and giving a score out of 5
+function getPasswordStrength(password: string) {
+  let score = 0;
+
+  if (password.length >= 6) score++;
+  if (password.length >= 10) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  if (password.length === 0) {
+    return { label: '', color: '#ccc', score: 0 };
+  } else if (score <= 2) {
+    return { label: 'Weak', color: '#d32f2f', score };
+  } else if (score <= 3) {
+    return { label: 'Medium', color: '#f59e0b', score };
+  } else {
+    return { label: 'Strong', color: '#16a34a', score };
+  }
+}
 
 const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
   const { signup } = useAuth();
@@ -185,6 +207,25 @@ const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
               onBlur={handleBlur('password')}
             />
             {touched.password && errors.password ? <Text style={styles.errorMessage}>{errors.password}</Text> : null}
+
+            {values.password.length > 0 && (
+              <View style={styles.strengthBox}>
+                <View style={styles.strengthBarBackground}>
+                  <View
+                    style={[
+                      styles.strengthBarFill,
+                      {
+                        width: `${(getPasswordStrength(values.password).score / 5) * 100}%`,
+                        backgroundColor: getPasswordStrength(values.password).color,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.strengthText, { color: getPasswordStrength(values.password).color }]}>
+                  {getPasswordStrength(values.password).label}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.formGroup}>
@@ -208,7 +249,11 @@ const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
               disabled={!isValid || isSubmitting}
               onPress={() => submitForm()}
             >
-              <Text style={styles.submitBtnText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.submitBtnText}>Submit</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.resetBtn} onPress={() => handleReset()}>
@@ -252,6 +297,24 @@ const styles = StyleSheet.create({
   submitBtnText: { color: '#fff', fontWeight: '600' },
   cancelBtn: { paddingVertical: 12, alignItems: 'center' },
   cancelBtnText: { color: '#2563eb' },
+
+  // password strength meter styles
+  strengthBox: { marginTop: 6 },
+  strengthBarBackground: {
+    height: 6,
+    backgroundColor: '#eee',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  strengthBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  strengthText: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '600',
+  },
 
   // reset button + row layout
   buttonRow: {
