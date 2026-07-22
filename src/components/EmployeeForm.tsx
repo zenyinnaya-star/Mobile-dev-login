@@ -63,6 +63,7 @@ const initialValues: EmployeeFormValues = {
 const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
   const { signup } = useAuth();
   const [signupError, setSignupError] = useState('');
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   const handleSubmit = async (
     values: EmployeeFormValues,
@@ -71,15 +72,33 @@ const EmployeeForm = ({ onSuccess, onCancel }: EmployeeFormProps) => {
     try {
       setSignupError('');
       const { confirmPassword: _confirmPassword, ...signupInput } = values;
-      await signup(signupInput);
-      Alert.alert('Success', 'Account created successfully!');
-      onSuccess();
+      const { needsEmailConfirmation: needsConfirmation } = await signup(signupInput);
+      if (needsConfirmation) {
+        setNeedsEmailConfirmation(true);
+      } else {
+        Alert.alert('Success', 'Account created successfully!');
+        onSuccess();
+      }
     } catch (err: any) {
       setSignupError(err?.message || 'Signup failed');
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (needsEmailConfirmation) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Check your email</Text>
+        <Text style={styles.confirmText}>
+          We sent you a confirmation link. Verify your email before logging in.
+        </Text>
+        <TouchableOpacity style={styles.submitBtn} onPress={onSuccess}>
+          <Text style={styles.submitBtnText}>Go to Login</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <Formik initialValues={initialValues} validationSchema={validationSchema} onSubmit={handleSubmit}>
@@ -210,6 +229,7 @@ const styles = StyleSheet.create({
   container: { padding: 16 },
   title: { fontSize: 20, fontWeight: '600', marginBottom: 16 },
   alertError: { color: '#d32f2f', marginBottom: 12 },
+  confirmText: { marginBottom: 20, color: '#374151', lineHeight: 20 },
   formGroup: { marginBottom: 12 },
   label: { marginBottom: 4, fontWeight: '500' },
   input: {

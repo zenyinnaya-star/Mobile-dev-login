@@ -1,10 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Crypto from 'expo-crypto';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
- 
-const AUTH_TOKEN_KEY = 'authToken';
-const USERS_KEY = 'users';
- 
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
+
 export interface Employee {
   fullName: string;
   email: string;
@@ -12,107 +9,126 @@ export interface Employee {
   employeeId: string;
   roles: string;
 }
- 
-interface StoredUser extends Employee {
-  passwordHash: string;
-}
- 
+
 export interface SignupInput extends Employee {
   password: string;
 }
- 
+
+interface SignupResult {
+  needsEmailConfirmation: boolean;
+}
+
 interface AuthContextValue {
   isLoggedIn: boolean;
   isLoading: boolean;
   currentUser: Employee | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (input: SignupInput) => Promise<void>;
+  signup: (input: SignupInput) => Promise<SignupResult>;
   logout: () => Promise<void>;
 }
- 
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
- 
-async function hashPassword(password: string) {
-  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+
+function toEmployee(row: {
+  full_name: string;
+  email: string;
+  phone: string;
+  employee_id: string;
+  roles: string;
+}): Employee {
+  return {
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    employeeId: row.employee_id,
+    roles: row.roles,
+  };
 }
- 
-async function getUsers(): Promise<StoredUser[]> {
-  const raw = await AsyncStorage.getItem(USERS_KEY);
-  return raw ? (JSON.parse(raw) as StoredUser[]) : [];
+
+async function loadEmployee(userId: string): Promise<Employee | null> {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('full_name, email, phone, employee_id, roles')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) return null;
+  return toEmployee(data);
 }
- 
-function toEmployee({ passwordHash: _passwordHash, ...employee }: StoredUser): Employee {
-  return employee;
-}
- 
+
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
- 
+
   useEffect(() => {
-    (async () => {
-      try {
-        const email = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-        if (email) {
-          const users = await getUsers();
-          const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-          if (user) {
-            setCurrentUser(toEmployee(user));
-            setIsLoggedIn(true);
-          }
-        }
-      } finally {
-        setIsLoading(false);
+    const applySession = async (session: Session | null) => {
+      if (session?.user) {
+        setCurrentUser(await loadEmployee(session.user.id));
+      } else {
+        setCurrentUser(null);
       }
-    })();
+    };
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      await applySession(session);
+      setIsLoading(false);
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        applySession(session);
+      }
+    );
+
+    return () => subscription.subscription.unsubscribe();
   }, []);
- 
-  const signup = async (input: SignupInput) => {
-    const users = await getUsers();
-    const email = input.email.toLowerCase();
- 
-    if (users.some((u) => u.email.toLowerCase() === email)) {
-      throw new Error('An account with this email already exists');
+
+  const signup = async (input: SignupInput): Promise<SignupResult> => {
+    const { password, email, fullName, phone, employeeId, roles } = input;
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          phone,
+          employee_id: employeeId,
+          roles,
+        },
+      },
+    });
+
+    if (error) {
+      if (/employees_employee_id_key/i.test(error.message)) {
+        throw new Error('An account with this employee ID already exists');
+      }
+      throw new Error(error.message);
     }
-    if (users.some((u) => u.employeeId.toUpperCase() === input.employeeId.toUpperCase())) {
-      throw new Error('An account with this employee ID already exists');
-    }
- 
-    const passwordHash = await hashPassword(input.password);
-    const { password: _password, ...employee } = input;
-    const newUser: StoredUser = { ...employee, passwordHash };
- 
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify([...users, newUser]));
+
+    return { needsEmailConfirmation: !data.session };
   };
- 
+
   const login = async (email: string, password: string) => {
-    const users = await getUsers();
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    const passwordHash = await hashPassword(password);
- 
-    if (!user || user.passwordHash !== passwordHash) {
-      throw new Error('Invalid email or password');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw new Error(error.message);
     }
- 
-    await AsyncStorage.setItem(AUTH_TOKEN_KEY, user.email);
-    setCurrentUser(toEmployee(user));
-    setIsLoggedIn(true);
   };
- 
+
   const logout = async () => {
-    await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
-    setCurrentUser(null);
-    setIsLoggedIn(false);
+    await supabase.auth.signOut();
   };
- 
+
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isLoading, currentUser, login, signup, logout }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn: !!currentUser, isLoading, currentUser, login, signup, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
- 
+
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
