@@ -18,6 +18,8 @@ interface SignupResult {
   needsEmailConfirmation: boolean;
 }
 
+export type ProfileUpdateInput = Partial<Pick<Employee, 'fullName' | 'phone' | 'roles'>>;
+
 interface AuthContextValue {
   isLoggedIn: boolean;
   isLoading: boolean;
@@ -25,6 +27,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   signup: (input: SignupInput) => Promise<SignupResult>;
   logout: () => Promise<void>;
+  updateProfile: (updates: ProfileUpdateInput) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -58,10 +62,14 @@ async function loadEmployee(userId: string): Promise<Employee | null> {
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const applySession = async (session: Session | null) => {
+      setIsLoggedIn(!!session?.user);
+      setUserId(session?.user?.id ?? null);
       if (session?.user) {
         setCurrentUser(await loadEmployee(session.user.id));
       } else {
@@ -120,9 +128,43 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await supabase.auth.signOut();
   };
 
+  const updateProfile = async (updates: ProfileUpdateInput) => {
+    if (!userId) {
+      throw new Error('Not signed in');
+    }
+
+    const { error } = await supabase
+      .from('employees')
+      .update({
+        ...(updates.fullName !== undefined && { full_name: updates.fullName }),
+        ...(updates.phone !== undefined && { phone: updates.phone }),
+        ...(updates.roles !== undefined && { roles: updates.roles }),
+      })
+      .eq('id', userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    setCurrentUser((prev) => (prev ? { ...prev, ...updates } : prev));
+  };
+
+  const deleteAccount = async () => {
+    if (!userId) {
+      throw new Error('Not signed in');
+    }
+
+    const { error } = await supabase.from('employees').delete().eq('id', userId);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await supabase.auth.signOut();
+  };
+
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn: !!currentUser, isLoading, currentUser, login, signup, logout }}
+      value={{ isLoggedIn, isLoading, currentUser, login, signup, logout, updateProfile, deleteAccount }}
     >
       {children}
     </AuthContext.Provider>

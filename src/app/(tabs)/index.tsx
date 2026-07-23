@@ -15,6 +15,9 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Welcome Employee</Text>
+      <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/profile')}>
+        <Text style={styles.profileText}>Profile</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
@@ -32,15 +35,26 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
   },
-  logoutBtn: {
+  profileBtn: {
     marginTop: 24,
     backgroundColor: '#2563eb',
     borderRadius: 6,
     paddingVertical: 12,
     paddingHorizontal: 24,
   },
-  logoutText: {
+  profileText: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  logoutBtn: {
+    marginTop: 12,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  logoutText: {
+    color: '#111827',
     fontWeight: '600',
   },
 });
